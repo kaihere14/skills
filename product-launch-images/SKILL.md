@@ -1,6 +1,6 @@
 ---
 name: product-launch-images
-description: Create premium, brand-native social media images of a product, plus ready-to-post copy, for any post — launch, new feature, update or changelog, milestone, tip, behind-the-scenes, or a general "what is this product" post. Use when the user asks to "make images/pictures for a post", "screenshot the website and make SaaS-style pictures", "create social media graphics / promo images / post visuals", "post about <product> on X / LinkedIn / Instagram", or "suggest what to post". Captures the live site with Playwright, builds cards in HTML in every needed platform size, renders them at 2x, self-reviews against a quality checklist, saves named PNGs to ~/Downloads, and drafts the post copy.
+description: Create premium, brand-native social media images of a product, plus ready-to-post copy, for any post — launch, new feature, update or changelog, milestone, tip, behind-the-scenes, or a general "what is this product" post. Use when the user asks to "make images/pictures for a post", "screenshot the website and make SaaS-style pictures", "create social media graphics / promo images / post visuals", "post about <product> on X / LinkedIn / Instagram", or "suggest what to post". Captures the live site with Claude in Chrome (headless Playwright as a fallback), pulls stills from video hero art with ffmpeg, builds cards in HTML in every needed platform size, renders them at 2x, self-reviews against a quality checklist, saves named PNGs to ~/Downloads, and drafts the post copy.
 ---
 
 # Product Social Images
@@ -43,6 +43,7 @@ Formats (all rendered at 2x pixel density):
   mascot / logo PNGs, existing OG images. Check sizes with `sips -g pixelWidth -g pixelHeight`.
 - Look at each candidate (Read the image). Pick ONE signature visual for the canvas, in this order:
   1. The hero illustration / painting / photo used on the site (best: unique to the brand).
+     If the hero is a video, pull a still from it (see "Video hero art" in step 2).
   2. A large brand-colour field taken from the site's actual CSS (not an invented palette).
   3. Only if neither exists: a flat solid brand colour. Still no gradient washes.
 - Note anything outdated (old logo in screenshots, placeholder content) so it never ships.
@@ -50,21 +51,81 @@ Formats (all rendered at 2x pixel density):
 ## 2. Capture the site
 
 `SKILL_DIR` means the folder containing this SKILL.md (e.g. `.agents/skills/product-launch-images`
-or `~/.claude/skills/product-launch-images`). Node resolves `playwright` from the script's folder,
-so copy the scripts into a temporary work dir, never into the user's project:
+or `~/.claude/skills/product-launch-images`). Work in a temporary dir, never in the user's project.
+Node resolves `playwright` from the script's folder, so copy the scripts there:
 
 ```bash
-W=<scratchpad or $(mktemp -d)>/social && mkdir -p $W/cards && cd $W
+W=<scratchpad or $(mktemp -d)>/social && mkdir -p $W/cards $W/assets && cd $W
+cp $SKILL_DIR/scripts/* . && cp $SKILL_DIR/templates/card.css cards/
+```
+
+Capture with **Claude in Chrome first**. Use the headless fallback only when Chrome is not connected.
+For logged-in app screens, ask the user for screenshots or use their browser; never guess UI.
+
+### 2a. Claude in Chrome (preferred)
+
+The user's real Chrome passes bot checks that block headless browsers, and it shows the page
+exactly as a visitor sees it.
+
+1. Load the tools in one ToolSearch call: `tabs_context_mcp`, `tabs_create_mcp`, `navigate`,
+   `computer`, `javascript_tool`, `get_page_text`, `tabs_close_mcp` (all `mcp__claude-in-chrome__*`).
+   If the tools are missing or report that the extension is not connected, go to 2b.
+2. Call `tabs_context_mcp`, open a new tab, `navigate` to the URL and wait 2–3 seconds.
+3. Paste the contents of `scripts/probe.js` into `javascript_tool`. It returns the name, fonts,
+   brand colours, logo candidates and hero media (videos, large images, CSS backgrounds).
+   Results over about 1,000 characters are truncated, so read long values in slices, e.g. an
+   inline logo: `document.querySelector("header svg").outerHTML.slice(0, 800)`, then `800, 1600`...
+   Save the slices as `assets/logo.svg`.
+4. Get the page copy with `get_page_text` (or `document.body.innerText.slice(a, b)` for a range).
+5. Screenshots: `computer` → `screenshot` with `save_to_disk: true` for a viewport, or scroll a
+   section into view and use `zoom` with a `region` and `save_to_disk: true`. Read every saved file.
+   Chrome captures at the display's pixel ratio. If a crop is narrower than 2× the panel it will
+   fill, capture that section with `capture.mjs` (2b) or rebuild it in HTML.
+6. Download brand assets (hero image, video, logo) with browser headers, below.
+7. Close the tab when done.
+
+### 2b. Headless fallback (Chrome not connected)
+
+```bash
 npm i playwright --silent && npx playwright install chromium   # once per work dir
-cp $SKILL_DIR/scripts/*.mjs . && cp $SKILL_DIR/templates/card.css cards/
 node capture.mjs https://example.com shots
 ```
 
-`capture.mjs` saves `hero.png` (first viewport, nav included), scrolls the whole page slowly so
-scroll-triggered animations fire, hides fixed/sticky headers, and saves `full.png`, `text.txt`, `links.txt`.
-For logged-in app screens, ask the user for screenshots or use their browser; never guess UI.
+`capture.mjs` sends a real desktop Chrome user agent and headers, waits for `load` (not network
+idle, which never settles on sites with analytics or websockets), picks "Reject" on cookie banners,
+and scrolls the page so lazy content loads. It saves `hero.png` (first viewport), `full.png` (whole
+page, sticky headers hidden), `text.txt`, `links.txt`, `assets.json` (the `probe.js` output) and
+`logo.svg` when the logo is inline SVG. If it exits with `blocked`, the site rejects headless
+browsers: ask the user to connect Claude in Chrome, or build the panels in HTML from the page copy.
 
-Crop sections from `full.png` with Pillow:
+### Downloading assets
+
+Send browser headers; many CDNs reject bare `curl`:
+
+```bash
+UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+curl -sL -A "$UA" -e "https://example.com/" -o assets/hero.avif "<asset url>"
+ffmpeg -v error -i assets/hero.avif assets/hero.png   # convert AVIF/WebP for Pillow and Chrome
+```
+
+### Video hero art
+
+When the hero (or `assets.json`) shows a `video`, never screenshot it mid-playback. Pull stills:
+
+```bash
+node frame.mjs "<video url>" assets/video        # needs ffmpeg
+```
+
+`frame.mjs` downloads the video with browser headers (HLS `.m3u8` streams are read directly),
+saves `frame-1.png` … `frame-4.png` at the video's full resolution spread across its length, and
+`sheet.png` to compare them. Read `sheet.png`, pick the frame that suits the layout, and copy it to
+`cards/art.png`. Prefer a frame over the `poster` image, which is often lower resolution. If the
+`src` is a `blob:` URL, find the real `.mp4`/`.webm`/`.m3u8` URL in the page's network requests
+(Chrome `read_network_requests`), or fall back to the poster.
+
+### Cropping
+
+Crop sections from `full.png` (or the saved Chrome screenshots) with Pillow:
 
 - Make a thumbnail (`sips -Z 2400 full.png --out thumb.png`), Read it, note section bounds in thumbnail pixels.
 - Multiply by `full_width / thumb_display_width` to get real pixels. Crop, then **Read every crop**.

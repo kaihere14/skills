@@ -39,7 +39,7 @@ Each skill lists its own requirements in its README. Summary:
 
 | Skill | Needs |
 | --- | --- |
-| product-launch-images | Node.js 18+, Python 3 with Pillow, internet access, macOS (uses `sips`). Playwright and Chromium install on first run. |
+| product-launch-images | Node.js 18+, Python 3 with Pillow, ffmpeg, internet access, macOS (uses `sips`). Claude in Chrome recommended; otherwise Playwright and Chromium install on first run. |
 
 ## Repository layout
 
