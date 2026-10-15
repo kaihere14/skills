@@ -96,6 +96,38 @@ body.vertical .sub {
   font-size: 26px;
 }
 
+/* Split layout: text left, panel right, both on one vertical anchor so neither half floats.
+   <body data-align="top|center|bottom">, default center. The renderer also outputs all three. */
+.split {
+  position: absolute;
+  inset: 140px 72px 72px;
+  display: grid;
+  grid-template-columns: 600px 1fr;
+  column-gap: 72px;
+  align-items: center;
+}
+body[data-align="top"] .split {
+  align-items: start;
+}
+body[data-align="bottom"] .split {
+  align-items: end;
+}
+body.vertical .split {
+  grid-template-columns: 1fr;
+  row-gap: 56px;
+  align-content: center;
+}
+body.vertical[data-align="top"] .split {
+  align-content: start;
+}
+body.vertical[data-align="bottom"] .split {
+  align-content: end;
+}
+.split .panel {
+  position: relative;
+  border-radius: 16px;
+}
+
 /* Product panels: hug content. .round = fully visible; default = bleeds off the bottom edge */
 .panel {
   position: absolute;

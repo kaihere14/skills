@@ -41,8 +41,13 @@
       </div>
     </div>
 
-    <!-- Fully visible screenshot panel (features):
-  <div class="panel round" style="left:700px;top:300px;width:840px"><img src="section.png"></div> -->
+    <!-- Fully visible screenshot panel (features): use .split so text and panel share one anchor.
+     Remove the absolute text block and panel above, then:
+  <div class="split">
+    <div><h1>Headline on two or three lines.</h1><p class="sub">One plain line.</p></div>
+    <div class="panel"><img src="section.png"></div>
+  </div>
+     Alignment: <body data-align="top|center|bottom">, default center. render.mjs also renders all three. -->
 
     <!-- Text top / wide panel below (steps, testimonials):
   <div style="position:absolute;left:72px;top:170px;width:1000px"><h1>Headline on one or two lines.</h1></div>

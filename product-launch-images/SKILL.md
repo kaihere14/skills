@@ -174,6 +174,11 @@ Design system:
   when the content fills the panel. Panel height hugs the content.
 - **Layout**: landscape features = text left, panel right. Steps, proof and vertical formats = text top,
   panel below. 72px outer margin.
+- **Split cards** (text beside a fully visible panel): always use the `.split` wrapper, never absolute
+  `top:` values for the text and panel. Text and panel then share one vertical anchor, so the headline
+  never sits at the top while the panel floats mid-card over an empty bottom half. Set the anchor with
+  `<body data-align="top|center|bottom">` (default center). `render.mjs` also renders every split card
+  in all three alignments so the user can pick.
 
 Swap the default fonts only if the brand already uses a distinctive display face. If the brand art is
 light, invert: dark ink headline, white panels with a hairline border and an art-tinted shadow.
@@ -197,12 +202,19 @@ node render.mjs cards   # renders every c*.html in cards/ to cards/out/ at 2x
 ```
 
 The renderer waits for `document.fonts.ready` and takes the size from `<body data-size="WxH">`.
+It prints `BROKEN IMAGE` (and exits non-zero) for any `<img>` or CSS background that failed to load,
+such as a missing `logo.png`. Fix every one before reviewing.
 
 Make 1000px thumbnails and **Read every card**. Fix and re-render until all pass:
 
 - [ ] Background is brand art (or real brand colour), not an invented gradient.
 - [ ] Headline readable over the art (add scrim if not); no accented words.
+- [ ] Text sits on a calm area: no UI labels, lines or other text from the background runs behind the
+      headline or sub. Shift `background-position`, add `.scrim`, or choose calmer art. A faded
+      screenshot of the product UI is never the canvas; put it in a panel instead.
+- [ ] Every image loaded: the logo shows, with no broken-image icon or alt text in the mark or panels.
 - [ ] No empty white space inside panels; nothing cut off at the sides.
+- [ ] No empty half of the canvas: text and panel share one anchor (split cards use `.split`).
 - [ ] No placeholder logos, old branding, or numbers that contradict what is shown.
 - [ ] The set reads as one family (same mark, margins, type scale) with varied crops.
 - [ ] Would a designer at Linear / Stripe / Vercel post this? If it looks like a template, redo that card.
@@ -214,6 +226,9 @@ Make 1000px thumbnails and **Read every card**. Fix and re-render until all pass
   01-<product>-<topic-slug>-1600x900.png
   02-...
   0N-<product>-<topic-slug>-1080x1350.png
+  layouts/02-<product>-<topic-slug>-top-1600x900.png      # split cards only, from out/layouts/
+  layouts/02-<product>-<topic-slug>-center-1600x900.png
+  layouts/02-<product>-<topic-slug>-bottom-1600x900.png
   raw-screenshots/raw-NN-<section>.png
 ```
 
@@ -238,4 +253,5 @@ Match the post type. Use only real features and facts; never invent metrics, use
 ## Final reply
 
 A short table of files + what each is for, the posts ready to paste, and the reach tips. Say which
-panel content is a mock.
+panel content is a mock, and that split cards come in top / center / bottom versions in `layouts/`
+(the main set uses center) so the user can swap in the one they prefer.
